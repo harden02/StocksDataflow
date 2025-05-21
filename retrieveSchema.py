@@ -1,20 +1,19 @@
 from google.cloud import bigquery
 from decimal import Decimal
 
-def retrieveSchema(projectID, datasetID, tableID):
+def retrieveSchema(projectID, bqTableID):
     """
     Retrieve the schema of a BigQuery table and convert it to a list of dictionaries.
 
     Args:
-        project_id (str): The ID of the GCP project.
-        dataset_id (str): The ID of the BigQuery dataset.
-        table_id (str): The ID of the BigQuery table.
+        projectID (str): The GCP project ID.
+        bqTableID (str): The BigQuery table ID in the format 'dataset.table'.
 
     Returns:
         list: A list of dictionaries representing the schema of the table.
     """
     client = bigquery.Client(project=projectID)
-    tableRef = f"{projectID}.{datasetID}.{tableID}"
+    tableRef = f"{projectID}.{bqTableID}"
     table = client.get_table(tableRef)
 
     schema = table.schema

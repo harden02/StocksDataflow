@@ -5,9 +5,10 @@ from apache_beam.io.gcp.bigquery import WriteToBigQuery, BigQueryDisposition
 import apache_beam.transforms.window as window
 import json
 import logging
-import os
+from typing import Any
 import yaml
 from datetime import datetime, timezone
+import argparse
 
 
 

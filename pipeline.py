@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 from datetime import datetime, timezone
 import argparse
+import numpy as np
 
 
 
@@ -50,7 +51,8 @@ def parse_json_message(message: str) -> dict[str, Any]:
 def run(
     input_subscription: str,
     output_table: str,
-    window_interval_sec: int = 60,
+    window_size_sec: int = 1440,
+    window_period_sec: int = 60,
     beam_args: list[str] = None,
 ) -> None:
     """Build and run the pipeline."""
@@ -66,7 +68,17 @@ def run(
             | "UTF-8 bytes to string" >> beam.Map(lambda msg: msg.decode("utf-8"))
             | "Parse JSON messages" >> beam.Map(parse_json_message)
             | "Fixed-size windows"
-            >> beam.WindowInto(window.FixedWindows(window_interval_sec, 0))
+            >> beam.WindowInto(window.SlidingWindows(window_size_sec, window_period_sec))
+            | "Add Symbol keys" >> beam.WithKeys(lambda msg: msg["Symbol"])
+            | "Group by Symbol for ticker specific analytics" >> beam.GroupByKey()
+            | "Get statistics"
+            >> beam.MapTuple(
+                lambda Symbol, messages: {
+                    "url": Symbol,
+                    "SMAClose": np.average(msg['Close'] for msg in messages), #calculate sliding window metrics such as moving averages  
+                    "DailyVolume": sum(msg['Volumne'] for msg in messages) #calculate total volume for the past window period               
+                }
+            )
         )
 
         # Output the results into BigQuery table.

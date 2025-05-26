@@ -17,7 +17,6 @@ import utiltransforms
 # Defines the BigQuery schema for the output table.
 SCHEMA = ",".join(
     [
-        "Type: STRING",
         "Symbol: INTEGER",
         "Open: DECIMAL:",
         "High: DECIMAL",
@@ -52,6 +51,14 @@ def create_timestamp(message):
     """Parse the timestamp from the message data and use it as the event timestamp for the pipeline"""
     yield beam.window.TimestampedValue(message, int(message["Timestamp"]))
 
+def get_latest_by_timestamp(messages, field):
+    """Get the latest value of a specified field from a list of messages based on the 'Timestamp' field.
+    Args:
+        messages: iterable of dicts containing the messages.
+        field: the field to extract from the latest message."""
+    latest_msg = max(messages, key=lambda msg: float(msg["Timestamp"]))
+    return latest_msg[field]
+
 
 def run(
     input_subscription: str,
@@ -81,8 +88,17 @@ def run(
             >> beam.MapTuple(
                 lambda Symbol, messages: {
                     "Symbol": Symbol,
+                    "Open": get_latest_by_timestamp(messages, "Open"), 
+                    "High": get_latest_by_timestamp(messages, "High"),
+                    "Low": get_latest_by_timestamp(messages, "Low"),
+                    "Close": get_latest_by_timestamp(messages, "Close"),
+                    "Volume": get_latest_by_timestamp(messages, "Volume"), 
+                    "Timestamp": get_latest_by_timestamp(messages, "Timestamp"), 
+                    "NumTradeTickers": get_latest_by_timestamp(messages, "NumTradeTickers"), 
+                    "VolumeWeightedPrice": get_latest_by_timestamp(messages, "VolumeWeightedPrice"), 
+                    #need to work out how to get the last value in the window for these fields in a not horrible way
                     "SMAClose": np.average(msg['Close'] for msg in messages), #calculate sliding window metrics such as moving averages  
-                    "DailyVolume": sum(msg['Volumne'] for msg in messages) #calculate total volume for the past window period               
+                    "AggregateVolume": sum(msg['Volumne'] for msg in messages) #calculate total volume for the past window period               
                 }
             )
         )

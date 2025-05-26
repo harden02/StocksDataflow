@@ -10,6 +10,7 @@ import yaml
 from datetime import datetime, timezone
 import argparse
 import numpy as np
+import utiltransforms
 
 
 
@@ -41,11 +42,15 @@ def parse_json_message(message: str) -> dict[str, Any]:
         "Low": row["Low"],
         "Close": row["Close"],
         "Volume": row["Volume"],
-        "Timestamp": print(datetime.fromtimestamp(row['Timestamp'], tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")), #conversion from POSIX timestamp to UTC
+        "Timestamp": row["Timestamp"],
         "NumTradeTickers": row["NumTradeTickers"],
         "VolumeWeightedPrice": row["VolumeWeightedPrice"],
 
     }
+
+def create_timestamp(message):
+    """Parse the timestamp from the message data and use it as the event timestamp for the pipeline"""
+    yield beam.window.TimestampedValue(message, int(message["Timestamp"]))
 
 
 def run(
@@ -67,14 +72,15 @@ def run(
             ).with_output_types(bytes)
             | "UTF-8 bytes to string" >> beam.Map(lambda msg: msg.decode("utf-8"))
             | "Parse JSON messages" >> beam.Map(parse_json_message)
-            | "Fixed-size windows"
+            | "Create timestamps" >> beam.ParDo(create_timestamp())
+            | "Create sliding window"
             >> beam.WindowInto(window.SlidingWindows(window_size_sec, window_period_sec))
             | "Add Symbol keys" >> beam.WithKeys(lambda msg: msg["Symbol"])
             | "Group by Symbol for ticker specific analytics" >> beam.GroupByKey()
             | "Get statistics"
             >> beam.MapTuple(
                 lambda Symbol, messages: {
-                    "url": Symbol,
+                    "Symbol": Symbol,
                     "SMAClose": np.average(msg['Close'] for msg in messages), #calculate sliding window metrics such as moving averages  
                     "DailyVolume": sum(msg['Volumne'] for msg in messages) #calculate total volume for the past window period               
                 }

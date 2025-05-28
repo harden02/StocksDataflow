@@ -25,6 +25,8 @@ SCHEMA = ",".join(
         "Timestamp: STRING",
         "NumTradeTickers: INTEGER",
         "VolumeWeightedPrice: DECIMAL",
+        "SMAClose: DECIMAL",  # Simple Moving Average of Close price
+        "AggregateVolume: INTEGER",  # Total volume in the window
     ]
 )
 

@@ -64,9 +64,9 @@ def get_latest_by_timestamp(messages, field):
 def run(
     input_subscription: str,
     output_table: str,
-    window_size_sec: int = 1440,
-    window_period_sec: int = 60,
-    beam_args: list[str] = None,
+    window_size_sec: int,
+    window_period_sec: int,
+    beam_args: list[str],
 ) -> None:
     """Build and run the pipeline."""
     options = PipelineOptions(beam_args, save_main_session=True, streaming=True)
@@ -98,8 +98,8 @@ def run(
                     "NumTradeTickers": get_latest_by_timestamp(messages, "NumTradeTickers"), 
                     "VolumeWeightedPrice": get_latest_by_timestamp(messages, "VolumeWeightedPrice"), 
                     #need to work out how to get the last value in the window for these fields in a not horrible way
-                    "SMAClose": np.average(msg['Close'] for msg in messages), #calculate sliding window metrics such as moving averages  
-                    "AggregateVolume": sum(msg['Volumne'] for msg in messages) #calculate total volume for the past window period               
+                    "SMAClose": np.average([msg['Close'] for msg in messages]), #calculate sliding window metrics such as moving averages  
+                    "AggregateVolume": sum(msg['Volume'] for msg in messages) #calculate total volume for the past window period               
                 }
             )
         )
@@ -117,22 +117,22 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--output_table",
+        default=
         f"{config["bqProjectId"]}.{config["bqDatasetId"]}.{config["bqTableId"]}", #BQ output table
     )
     parser.add_argument(
-        f"projects/{config["bqProjectId"]}/subscriptions/{config["pubSubSubscription"]}",
+        "--input_subscription",
+        default=
+        f"projects/{config["bqProjectId"]}/subscriptions/{config["pubSubSubscription"]}", #pubsub input subscription
     )
-    parser.add_argument(
-        "--window_interval_sec",
-        default=60,
-        type=int,
-        help="Window interval in seconds for grouping incoming messages.",
-    )
+
     args, beam_args = parser.parse_known_args()
 
     run(
         input_subscription=args.input_subscription,
         output_table=args.output_table,
-        window_interval_sec=args.window_interval_sec,
-        beam_args=beam_args,
+        window_size_sec= "1440",
+        window_period_sec= "60",
+        beam_args=beam_args
     )

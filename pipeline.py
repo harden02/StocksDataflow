@@ -126,13 +126,18 @@ if __name__ == "__main__":
         default=
         f"projects/{config["bqProjectId"]}/subscriptions/{config["pubSubSubscription"]}", #pubsub input subscription
     )
+    parser.add_argument(
+        "--runner",
+        default=config["runner"],  # Beam runner (e.g., DataflowRunner, DirectRunner)
+    )
 
     args, beam_args = parser.parse_known_args()
 
     run(
         input_subscription=args.input_subscription,
         output_table=args.output_table,
-        window_size_sec= "1440",
+        runner=args.runner,
+        window_size_sec= "20",
         window_period_sec= "60",
         beam_args=beam_args
     )

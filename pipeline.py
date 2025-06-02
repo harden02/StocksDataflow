@@ -16,17 +16,17 @@ import numpy as np
 # Defines the BigQuery schema for the output table.
 SCHEMA = ",".join(
     [
-        "Symbol: INTEGER",
-        "Open: DECIMAL:",
-        "High: DECIMAL",
-        "Low: DECIMAL",
-        "Close: DECIMAL",
-        "Volume: INTEGER",
-        "Timestamp: STRING",
-        "NumTradeTickers: INTEGER",
-        "VolumeWeightedPrice: DECIMAL",
-        "SMAClose: DECIMAL",  # Simple Moving Average of Close price
-        "AggregateVolume: INTEGER",  # Total volume in the window
+        "Symbol:INTEGER",
+        "Open:DECIMAL",
+        "High:DECIMAL",
+        "Low:DECIMAL",
+        "Close:DECIMAL",
+        "Volume:INTEGER",
+        "Timestamp:STRING",
+        "NumTradeTickers:INTEGER",
+        "VolumeWeightedPrice:DECIMAL",
+        "SMAClose:DECIMAL",
+        "AggregateVolume:INTEGER"
     ]
 )
 
@@ -64,6 +64,7 @@ def get_latest_by_timestamp(messages, field):
 def run(
     input_subscription: str,
     output_table: str,
+    runner: str,
     window_size_sec: int,
     window_period_sec: int,
     beam_args: list[str],
@@ -80,7 +81,7 @@ def run(
             ).with_output_types(bytes)
             | "UTF-8 bytes to string" >> beam.Map(lambda msg: msg.decode("utf-8"))
             | "Parse JSON messages" >> beam.Map(parse_json_message)
-            | "Create timestamps" >> beam.ParDo(create_timestamp())
+            | "Create timestamps" >> beam.ParDo(create_timestamp)
             | "Create sliding window"
             >> beam.WindowInto(window.SlidingWindows(window_size_sec, window_period_sec))
             | "Add Symbol keys" >> beam.WithKeys(lambda msg: msg["Symbol"])
@@ -137,7 +138,7 @@ if __name__ == "__main__":
         input_subscription=args.input_subscription,
         output_table=args.output_table,
         runner=args.runner,
-        window_size_sec= "20",
-        window_period_sec= "60",
+        window_size_sec= 20,
+        window_period_sec= 60,
         beam_args=beam_args
     )

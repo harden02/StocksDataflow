@@ -17,15 +17,15 @@ import numpy as np
 SCHEMA = ",".join(
     [
         "Symbol:INTEGER",
-        "Open:DECIMAL",
-        "High:DECIMAL",
-        "Low:DECIMAL",
-        "Close:DECIMAL",
+        "Open:NUMERIC",
+        "High:NUMERIC",
+        "Low:NUMERIC",
+        "Close:NUMERIC",
         "Volume:INTEGER",
         "Timestamp:STRING",
-        "NumTradeTickers:INTEGER",
-        "VolumeWeightedPrice:DECIMAL",
-        "SMAClose:DECIMAL",
+        "numTradeTickers:INTEGER",
+        "VolumeWeightedPrice:NUMERIC",
+        "SMAClose:NUMERIC",
         "AggregateVolume:INTEGER"
     ]
 )
@@ -43,7 +43,7 @@ def parse_json_message(message: str) -> dict[str, Any]:
         "Close": row["Close"],
         "Volume": row["Volume"],
         "Timestamp": row["Timestamp"],
-        "NumTradeTickers": row["NumTradeTickers"],
+        "numTradeTickers": row["numTradeTickers"],
         "VolumeWeightedPrice": row["VolumeWeightedPrice"],
 
     }
@@ -70,7 +70,7 @@ def run(
     beam_args: list[str],
 ) -> None:
     """Build and run the pipeline."""
-    options = PipelineOptions(beam_args, save_main_session=True, streaming=True)
+    options = PipelineOptions(beam_args, save_main_session=True, streaming=True, runner=runner)
 
     with beam.Pipeline(options=options) as pipeline:
         messages = (
@@ -96,7 +96,7 @@ def run(
                     "Close": get_latest_by_timestamp(messages, "Close"),
                     "Volume": get_latest_by_timestamp(messages, "Volume"), 
                     "Timestamp": get_latest_by_timestamp(messages, "Timestamp"), 
-                    "NumTradeTickers": get_latest_by_timestamp(messages, "NumTradeTickers"), 
+                    "numTradeTickers": get_latest_by_timestamp(messages, "numTradeTickers"), 
                     "VolumeWeightedPrice": get_latest_by_timestamp(messages, "VolumeWeightedPrice"), 
                     #need to work out how to get the last value in the window for these fields in a not horrible way
                     "SMAClose": np.average([msg['Close'] for msg in messages]), #calculate sliding window metrics such as moving averages  
@@ -120,12 +120,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output_table",
         default=
-        f"{config["bqProjectId"]}.{config["bqDatasetId"]}.{config["bqTableId"]}", #BQ output table
+        f"{config['bqProjectId']}.{config['bqDatasetId']}.{config['bqTableId']}", #BQ output table
     )
     parser.add_argument(
         "--input_subscription",
         default=
-        f"projects/{config["bqProjectId"]}/subscriptions/{config["pubSubSubscription"]}", #pubsub input subscription
+        f"projects/{config['bqProjectId']}/subscriptions/{config['pubSubSubscription']}", #pubsub input subscription
     )
     parser.add_argument(
         "--runner",
@@ -138,7 +138,7 @@ if __name__ == "__main__":
         input_subscription=args.input_subscription,
         output_table=args.output_table,
         runner=args.runner,
-        window_size_sec= 20,
+        window_size_sec= 60,
         window_period_sec= 60,
         beam_args=beam_args
     )

@@ -1,7 +1,5 @@
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions    
-from apache_beam.io.gcp.pubsub import ReadFromPubSub
-from apache_beam.io.gcp.bigquery import WriteToBigQuery, BigQueryDisposition
 import apache_beam.transforms.window as window
 import json
 import logging
@@ -10,6 +8,7 @@ import yaml
 from datetime import datetime, timezone
 import argparse
 import numpy as np
+import decimal
 
 #setup logging
 logging.getLogger().setLevel(logging.INFO)
@@ -39,14 +38,14 @@ def parse_json_message(message: str) -> dict[str, Any]:
     return {
         "Type": row["Type"],
         "Symbol": row["Symbol"],
-        "Open": row["Open"],
-        "High": row["High"],
-        "Low": row["Low"],
-        "Close": row["Close"],
+        "Open": decimal(row["Open"]),
+        "High": decimal(row["High"]),
+        "Low": decimal(row["Low"]),
+        "Close": decimal(row["Close"]),
         "Volume": row["Volume"],
         "Timestamp": row["Timestamp"],
         "numTradeTickers": row["numTradeTickers"],
-        "VolumeWeightedPrice": row["VolumeWeightedPrice"],
+        "VolumeWeightedPrice": decimal(row["VolumeWeightedPrice"]),
 
     }
 
@@ -94,17 +93,17 @@ def run(
             >> beam.MapTuple(
                 lambda Symbol, messages: {
                     "Symbol": Symbol,
-                    "Open": float(get_latest_by_timestamp(messages, "Open")), 
-                    "High": float(get_latest_by_timestamp(messages, "High")),
-                    "Low": float(get_latest_by_timestamp(messages, "Low")),
-                    "Close": float(get_latest_by_timestamp(messages, "Close")),
+                    "Open": decimal(get_latest_by_timestamp(messages, "Open")), 
+                    "High": decimal(get_latest_by_timestamp(messages, "High")),
+                    "Low": decimal(get_latest_by_timestamp(messages, "Low")),
+                    "Close": decimal(get_latest_by_timestamp(messages, "Close")),
                     "Volume": get_latest_by_timestamp(messages, "Volume"), 
                     "Timestamp": get_latest_by_timestamp(messages, "Timestamp"), 
                     "numTradeTickers": get_latest_by_timestamp(messages, "numTradeTickers"), 
-                    "VolumeWeightedPrice": float(get_latest_by_timestamp(messages, "VolumeWeightedPrice")), 
+                    "VolumeWeightedPrice": decimal(get_latest_by_timestamp(messages, "VolumeWeightedPrice")), 
                     #need to work out how to get the last value in the window for these fields in a not horrible way
-                    "SMAClose": float(np.average([msg['Close'] for msg in messages])), #calculate sliding window metrics such as moving averages  
-                    "AggregateVolume": float(sum(msg['Volume'] for msg in messages)) #calculate total volume for the past window period               
+                    "SMAClose": round(decimal(np.average([msg['Close'] for msg in messages])), 4), #calculate sliding window metrics such as moving averages, round to avoid bq insert issues  
+                    "AggregateVolume": sum(msg['Volume'] for msg in messages) #calculate total volume for the past window period               
                 }
             )
         )
@@ -143,7 +142,7 @@ if __name__ == "__main__":
         input_subscription=args.input_subscription,
         output_table=args.output_table,
         runner=args.runner,
-        window_size_sec= 120,
+        window_size_sec= 180,
         window_period_sec= 60,
         beam_args=beam_args
     )

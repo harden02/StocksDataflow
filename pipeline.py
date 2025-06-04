@@ -11,7 +11,8 @@ from datetime import datetime, timezone
 import argparse
 import numpy as np
 
-
+#setup logging
+logging.getLogger().setLevel(logging.INFO)
 
 # Defines the BigQuery schema for the output table.
 SCHEMA = ",".join(
@@ -32,8 +33,9 @@ SCHEMA = ",".join(
 
 
 def parse_json_message(message: str) -> dict[str, Any]:
-    """Parse the input json message and add 'score' & 'processing_time' keys."""
+    """Parse the input json message"""
     row = json.loads(message)
+    logging.info(f"Parsed message: {row}")
     return {
         "Type": row["Type"],
         "Symbol": row["Symbol"],
@@ -50,6 +52,7 @@ def parse_json_message(message: str) -> dict[str, Any]:
 
 def create_timestamp(message):
     """Parse the timestamp from the message data and use it as the event timestamp for the pipeline"""
+    logging.info(f"Creating timestamp for message, timestamp is {message['Timestamp']}")
     yield beam.window.TimestampedValue(message, int(message["Timestamp"]))
 
 def get_latest_by_timestamp(messages, field):
@@ -57,6 +60,7 @@ def get_latest_by_timestamp(messages, field):
     Args:
         messages: iterable of dicts containing the messages.
         field: the field to extract from the latest message."""
+    logging.info(f"Getting latest value for field: {field}")
     latest_msg = max(messages, key=lambda msg: float(msg["Timestamp"]))
     return latest_msg[field]
 
@@ -90,22 +94,23 @@ def run(
             >> beam.MapTuple(
                 lambda Symbol, messages: {
                     "Symbol": Symbol,
-                    "Open": get_latest_by_timestamp(messages, "Open"), 
-                    "High": get_latest_by_timestamp(messages, "High"),
-                    "Low": get_latest_by_timestamp(messages, "Low"),
-                    "Close": get_latest_by_timestamp(messages, "Close"),
+                    "Open": float(get_latest_by_timestamp(messages, "Open")), 
+                    "High": float(get_latest_by_timestamp(messages, "High")),
+                    "Low": float(get_latest_by_timestamp(messages, "Low")),
+                    "Close": float(get_latest_by_timestamp(messages, "Close")),
                     "Volume": get_latest_by_timestamp(messages, "Volume"), 
                     "Timestamp": get_latest_by_timestamp(messages, "Timestamp"), 
                     "numTradeTickers": get_latest_by_timestamp(messages, "numTradeTickers"), 
-                    "VolumeWeightedPrice": get_latest_by_timestamp(messages, "VolumeWeightedPrice"), 
+                    "VolumeWeightedPrice": float(get_latest_by_timestamp(messages, "VolumeWeightedPrice")), 
                     #need to work out how to get the last value in the window for these fields in a not horrible way
-                    "SMAClose": np.average([msg['Close'] for msg in messages]), #calculate sliding window metrics such as moving averages  
-                    "AggregateVolume": sum(msg['Volume'] for msg in messages) #calculate total volume for the past window period               
+                    "SMAClose": float(np.average([msg['Close'] for msg in messages])), #calculate sliding window metrics such as moving averages  
+                    "AggregateVolume": float(sum(msg['Volume'] for msg in messages)) #calculate total volume for the past window period               
                 }
             )
         )
 
         # Output the results into BigQuery table.
+        logging.info(f"Writing to BigQuery table: {output_table}")
         _ = messages | "Write to Big Query" >> beam.io.WriteToBigQuery(
             output_table, schema=SCHEMA
         )
@@ -138,7 +143,7 @@ if __name__ == "__main__":
         input_subscription=args.input_subscription,
         output_table=args.output_table,
         runner=args.runner,
-        window_size_sec= 60,
+        window_size_sec= 120,
         window_period_sec= 60,
         beam_args=beam_args
     )

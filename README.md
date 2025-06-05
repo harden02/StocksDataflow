@@ -9,4 +9,8 @@ The intention is to create a stock streaming pipeline where data is cleaned and 
 - Recieves input JSON from GCP Pub/Sub
 - Clean, transform, and store data in Google Cloud Platform's BigQuery.
 
-This is an early iteration which is being improved with more metrics, different window durations and an overall cleanup of the pipeline's code where possible.
+This is an early iteration which is being improved with more metrics, different window durations and an overall cleanup of the pipeline's code where possible. Currently I am hosting it on the local Directrunner to keep cloud costs down whilst I build and test new features.
+
+Here is a preliminary design pattern diagram:
+
+![design drawio](https://github.com/user-attachments/assets/22f9d9dd-c819-4de0-aaab-c8bf5f491149)
